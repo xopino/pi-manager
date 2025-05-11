@@ -1,11 +1,11 @@
 services:
-  dashboard:
+  pi-manager:
     build: .
     container_name: pi-manager
     ports:
       - "8000:8000"
     volumes:
       - .:/pi-manager
-    environment:
-      - ENV=dev
     restart: unless-stopped
+    
+
