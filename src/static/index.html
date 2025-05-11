@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MCP Agent Chat</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        
+        h1 {
+            color: #333;
+            text-align: center;
+        }
+        
+        #chat-container {
+            background-color: white;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            margin-bottom: 20px;
+            height: 400px;
+            overflow-y: auto;
+        }
+        
+        .message {
+            padding: 10px 15px;
+            margin-bottom: 10px;
+            border-radius: 10px;
+            max-width: 70%;
+        }
+        
+        .user-message {
+            background-color: #e3f2fd;
+            margin-left: auto;
+            text-align: right;
+        }
+        
+        .bot-message {
+            background-color: #f1f1f1;
+            margin-right: auto;
+        }
+        
+        .message-form {
+            display: flex;
+            gap: 10px;
+        }
+        
+        #message-input {
+            flex-grow: 1;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 16px;
+        }
+        
+        button {
+            padding: 10px 20px;
+            background-color: #2196F3;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        
+        button:hover {
+            background-color: #0b7dda;
+        }
+        
+        .status {
+            margin-top: 10px;
+            text-align: center;
+            font-style: italic;
+            color: #666;
+        }
+        
+        pre {
+            white-space: pre-wrap;
+            background-color: #f8f8f8;
+            padding: 10px;
+            border-radius: 5px;
+            border-left: 3px solid #2196F3;
+            margin: 10px 0;
+            overflow-x: auto;
+        }
+        
+        code {
+            font-family: monospace;
+        }
+    </style>
+</head>
+<body>
+    <h1>MCP Agent Chat</h1>
+    
+    <div id="chat-container"></div>
+    
+    <form id="chat-form" class="message-form">
+        <input type="text" id="message-input" placeholder="Type your message here..." autofocus />
+        <button type="submit">Send</button>
+    </form>
+    
+    <div id="status" class="status">Connected to agent</div>
+    
+    <script>
+        const chatContainer = document.getElementById('chat-container');
+        const chatForm = document.getElementById('chat-form');
+        const messageInput = document.getElementById('message-input');
+        const statusElement = document.getElementById('status');
+        
+        // Store conversation history
+        let conversationHistory = [];
+        
+        // Add a message to the chat container
+        function addMessage(content, isUser) {
+            const message = document.createElement('div');
+            message.className = `message ${isUser ? 'user-message' : 'bot-message'}`;
+            
+            // Handle markdown-like code blocks
+            let formattedContent = content.replace(/```([\s\S]*?)```/g, '<pre><code>$1</code></pre>');
+            
+            // Handle tool_code blocks
+            formattedContent = formattedContent.replace(/```tool_code\n([\s\S]*?)```/g, '<pre><code class="tool">$1</code></pre>');
+            
+            message.innerHTML = formattedContent;
+            chatContainer.appendChild(message);
+            
+            // Scroll to bottom
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+            
+            // Add to conversation history
+            conversationHistory.push({
+                role: isUser ? 'user' : 'assistant',
+                content: [
+                    {
+                        type: 'text',
+                        content: content
+                    }
+                ]
+            });
+        }
+        
+        // Send a message to the agent
+        async function sendMessage(message) {
+            try {
+                statusElement.textContent = 'Sending message...';
+                
+                const response = await fetch('/simple-mcp/chat', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        messages: conversationHistory,
+                        stream: false,
+                        model: 'gemini-1.5-pro',
+                        temperature: 0.7,
+                        max_tokens: 1024
+                    })
+                });
+                
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.detail || 'Error connecting to agent');
+                }
+                
+                const data = await response.json();
+                
+                // Extract the bot's response text
+                const botResponse = data.message.content[0].content;
+                
+                // Add the bot's response to the chat
+                addMessage(botResponse, false);
+                
+                statusElement.textContent = 'Connected to agent';
+            } catch (error) {
+                console.error('Error:', error);
+                statusElement.textContent = error.message || 'Error connecting to agent';
+            }
+        }
+        
+        // Handle form submission
+        chatForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            
+            const message = messageInput.value.trim();
+            if (!message) return;
+            
+            // Add the user's message to the chat
+            addMessage(message, true);
+            
+            // Clear input
+            messageInput.value = '';
+            
+            // Send message to agent
+            sendMessage(message);
+        });
+        
+        // Add initial greeting
+        window.addEventListener('load', () => {
+            addMessage('Hello! I\'m your MCP agent. How can I help you today?', false);
+        });
+    </script>
+</body>
+</html> 
