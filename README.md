@@ -1,2 +1,7 @@
-# pi-manager
-A web browser-based manager for Pi devices, focused on MCP integrations.
+# pi-agent
+
+End Goal:
+
+You give list of tasks to complete,
+
+and the agent doesnt stop until completes them all.
